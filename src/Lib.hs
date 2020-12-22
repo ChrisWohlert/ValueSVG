@@ -1,12 +1,12 @@
-{-# LANGUAGE DataKinds       #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeOperators   #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE DataKinds                 #-}
 {-# LANGUAGE FlexibleContexts          #-}
-{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE MultiParamTypeClasses     #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedStrings         #-}
+{-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE TypeFamilies              #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeOperators             #-}
 
 
 module Lib
@@ -14,16 +14,17 @@ module Lib
     , app
     ) where
 
-import Data.Aeson
-import Data.Aeson.TH
-import Network.Wai
-import Network.Wai.Handler.Warp
-import Servant
+import           Data.Aeson
+import           Data.Aeson.TH
 import           Diagrams.Backend.SVG
-import qualified Diagrams.Prelude as D
-import           Graphics.Svg.Core (renderBS)
-import           Text.Blaze (Markup, unsafeLazyByteString)
+import qualified Diagrams.Prelude         as D
+import           Graphics.Svg.Core        (renderBS)
+import           Network.Wai
+import           Network.Wai.Handler.Warp
+import           Servant
+import           Text.Blaze               (Markup, unsafeLazyByteString)
 import           Text.Blaze.Renderer.Utf8 (renderMarkup)
+import           ValueSVG
 
 data User = User
   { userId        :: Int
@@ -33,7 +34,7 @@ data User = User
 
 $(deriveJSON defaultOptions ''User)
 
-type API = 
+type API =
         "users" :> Get '[JSON] [User]
   :<|>  "svg" :> Get '[SVG] Markup
 
@@ -48,7 +49,7 @@ api = Proxy
 
 server :: Server API
 server = return users
-    :<|> return (diagramToMarkup (D.circle 1))
+    :<|> return (diagramToMarkup $ percentageCircle (Percentage 40))
 
 users :: [User]
 users = [ User 1 "Isaac" "Newton"
@@ -63,4 +64,4 @@ instance MimeRender SVG Markup where
   mimeRender _ = renderMarkup
 
 diagramToMarkup :: D.Diagram B -> Markup
-diagramToMarkup = unsafeLazyByteString . renderBS . D.renderDia SVG (SVGOptions (D.mkWidth 250) Nothing "" [] True)
+diagramToMarkup = unsafeLazyByteString . renderBS . D.renderDia SVG (SVGOptions (D.mkWidth 200) Nothing "" [] True)

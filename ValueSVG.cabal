@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 15d08f65a706aea4cbd97ebd797d885b28e7163be27d783343d9dfbf0c894186
+-- hash: 97e7b05f455f318a3923d9c8e135493035e896c474a444b40538a23ec4e1a22f
 
 name:           ValueSVG
 version:        0.1.0.0
@@ -27,6 +27,7 @@ source-repository head
 library
   exposed-modules:
       Lib
+      ValueSVG
   other-modules:
       Paths_ValueSVG
   hs-source-dirs:
@@ -39,6 +40,7 @@ library
     , diagrams
     , diagrams-lib
     , diagrams-svg
+    , lens
     , servant-server
     , svg-builder
     , wai
@@ -61,6 +63,7 @@ executable ValueSVG-exe
     , diagrams
     , diagrams-lib
     , diagrams-svg
+    , lens
     , servant-server
     , svg-builder
     , wai
@@ -87,6 +90,7 @@ test-suite ValueSVG-test
     , hspec
     , hspec-wai
     , hspec-wai-json
+    , lens
     , servant-server
     , svg-builder
     , wai
