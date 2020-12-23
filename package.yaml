@@ -31,6 +31,8 @@ dependencies:
   - svg-builder
   - blaze-markup
   - lens
+  - colour
+  - palette
 
 library:
   source-dirs: src

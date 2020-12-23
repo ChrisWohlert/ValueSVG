@@ -3,7 +3,14 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    hackage: palette-0.3.0.2@sha256:583ab3b018a26ae8788c6a13007d72edeb9231315da8728b9bb4ff5f4236a374,1522
+    pantry-tree:
+      size: 6342
+      sha256: fd476440e94fc797e7dfe033c88c8925c23aaf8ea40cdccbfff9c132760cdc64
+  original:
+    hackage: palette-0.3.0.2
 snapshots:
 - completed:
     size: 533252
