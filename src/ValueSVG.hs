@@ -11,6 +11,7 @@ module ValueSVG where
 
 import           Control.Lens                  hiding (element, (#))
 import           Data.Colour.Palette.BrewerSet
+import qualified Debug.Trace                   as D
 import           Diagrams.Backend.SVG
 import           Diagrams.Prelude
 
@@ -18,10 +19,13 @@ newtype Percentage = Percentage { _percentage :: Double }
 
 data Bar = Bar { _barValue :: Double, _barLabel :: String }
 
+data Pie = Pie { _pieValue :: Double, _pieLabel :: String }
+
 $(makeLenses ''Percentage)
 $(makeLenses ''Bar)
+$(makeLenses ''Pie)
 
-dev = renderSVG "test.svg" (mkWidth 400) $ barChart # frame 0.1
+dev = renderSVG "test.svg" (mkWidth 400) $ pieChart [Pie 0.4 "Test", Pie 0.6 "Test2"] # frame 0.1
 
 percentageCircle :: Percentage -> Diagram B
 percentageCircle (Percentage p) =
@@ -110,3 +114,12 @@ mkBar maxValue bar color =
 yAxis = strokeLine $ fromVertices [0 ^& 0, 0 ^& 1]
 
 xAxis = strokeLine $ fromVertices [0 ^& 0, 1 ^& 0]
+
+
+pieChart :: [Pie] -> Diagram B
+pieChart pies =
+    let sumOfValues = sum $ pies ^.. folded . pieValue
+        ratio p = ((-1) * 360 * p ^. pieValue / sumOfValues) @@ deg
+        piePiece p accRatio = wedge 1 (rotate ((1/4 @@ turn) ^+^ accRatio) xDir) (ratio p)
+    in
+        mconcat $ zipWith (flip fc) (fst (foldl (\ (d, accRatio) a -> ((piePiece a accRatio) : d, accRatio ^+^ ratio a)) ([], 0 @@ deg) pies)) colors
