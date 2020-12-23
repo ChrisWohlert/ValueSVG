@@ -73,7 +73,7 @@ roundedDialNeedle p width =
 
 barChart :: Diagram B
 barChart =
-       hsep 0.1 (strutX 0 : bars [Bar 0.5 "Test", Bar 0.2 "Test2"])
+       hsep 0.1 (strutX 0 : bars [Bar 25 "Test", Bar 10 "Test2", Bar 100 "Test2"])
     <> strutY 0.2
     <> dashedBackground
         # translateY 1
@@ -85,25 +85,27 @@ dashedBackground = vsep 0.1 (replicate 10 (fromVertices (map p2 [(0, 0), (1, 0)]
 colors = concatMap (`brewerSet` 9) [Pastel1, Pastel2, Set1, Set2, Set3, Paired]
 
 bars :: [Bar] -> [Diagram B]
-bars bs = zipWith mkBar bs colors
+bars bs = zipWith (mkBar (maximum (bs ^.. folded . barValue))) bs colors
 
-mkBar bar color =
-    roundedRect' 0.1 (bar ^. barValue) (with & radiusTL .~ 0.01
+mkBar maxValue bar color =
+    let normalizedValue = bar ^. barValue / maxValue
+    in
+        roundedRect' 0.1 normalizedValue (with & radiusTL .~ 0.01
                                              & radiusTR .~ 0.01)
-        # translateY (bar ^. barValue / 2)
-        # fillTexture gradient
-        # lineTexture gradient
-    <> topLeftText (bar ^. barLabel)
-        # font "Tahoma"
-        # fc color
-        # scale 0.05
-        # rotateBy (-1/8)
-    <> text (show $ bar ^. barValue)
-        # translateY (0.4 + 20 * bar ^. barValue)
-        # scale 0.05
-        # fc color
+            # translateY (normalizedValue / 2)
+            # fillTexture (gradient normalizedValue)
+            # lineTexture (gradient normalizedValue)
+        <> topLeftText (bar ^. barLabel)
+            # font "Tahoma"
+            # fc color
+            # scale 0.05
+            # rotateBy (-1/8)
+        <> text (show $ bar ^. barValue)
+            # translateY (0.4 + 20 * normalizedValue)
+            # scale 0.05
+            # fc color
     where
-        gradient = mkLinearGradient (mkStops [(white, 0, 1), (color, 1, 1)]) (0 ^& (-0.3)) (0 ^& bar ^. barValue) GradPad
+        gradient v = mkLinearGradient (mkStops [(white, 0, 1), (color, 1, 1)]) (0 ^& (-0.3)) (0 ^& v) GradPad
 
 yAxis = strokeLine $ fromVertices [0 ^& 0, 0 ^& 1]
 
