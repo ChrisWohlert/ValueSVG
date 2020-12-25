@@ -25,7 +25,7 @@ $(makeLenses ''Percentage)
 $(makeLenses ''Bar)
 $(makeLenses ''Pie)
 
-dev = renderSVG "test.svg" (mkWidth 400) $ pieChart [Pie 0.4 "Test", Pie 0.6 "Test2"] # frame 0.1
+dev = renderSVG "test.svg" (mkWidth 400) $ pieChart [Pie 0.4 "Test", Pie 0.6 "Test2", Pie 0.5 "Test3", Pie 0.3 "Test4"] # frame 0.1
 
 percentageCircle :: Percentage -> Diagram B
 percentageCircle (Percentage p) =
@@ -117,9 +117,26 @@ xAxis = strokeLine $ fromVertices [0 ^& 0, 1 ^& 0]
 
 
 pieChart :: [Pie] -> Diagram B
-pieChart pies =
-    let sumOfValues = sum $ pies ^.. folded . pieValue
-        ratio p = ((-1) * 360 * p ^. pieValue / sumOfValues) @@ deg
-        piePiece p accRatio = wedge 1 (rotate ((1/4 @@ turn) ^+^ accRatio) xDir) (ratio p)
-    in
-        mconcat $ zipWith (flip fc) (fst (foldl (\ (d, accRatio) a -> ((piePiece a accRatio) : d, accRatio ^+^ ratio a)) ([], 0 @@ deg) pies)) colors
+pieChart pies = pieChart' pies (90 @@ deg) colors
+    where
+        sumOfValues = sum . map (^. pieValue) $ pies
+        pieChart' [] _ _ = mempty
+        pieChart' (p:ps) accRatio (c:cs) = 
+            let ratio = ((-1) * 360 * p ^. pieValue / sumOfValues) @@ deg
+                newPie = wedge 1 (rotate accRatio xDir) ratio
+                    # fc c
+                    # lc c
+                    -- # translate (0.1 *^ fromDirection (rotate (accRatio ^+^ ratio  ^/ 2) xDir))
+                restPies = pieChart' ps (accRatio ^+^ ratio) cs
+                label = 
+                    rect 0.1 0.1
+                        # frame 0.1
+                        # translateX 1.3
+                        # translateY (fromIntegral (length (p:ps)) / 4 - 0.59)
+                        # fc c
+                        # lc c
+                    ||| topLeftText (p ^. pieLabel) 
+                        # scale 0.15 
+                        # translateY (fromIntegral (length (p:ps)) / 4 - 0.5)
+            in
+                newPie <> restPies <> label <> strutX 4
