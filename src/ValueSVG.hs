@@ -11,21 +11,22 @@ module ValueSVG where
 
 import           Control.Lens                  hiding (element, (#))
 import           Data.Colour.Palette.BrewerSet
-import qualified Debug.Trace                   as D
 import           Diagrams.Backend.SVG
 import           Diagrams.Prelude
 
 newtype Percentage = Percentage { _percentage :: Double }
 
 data Bar = Bar { _barValue :: Double, _barLabel :: String }
+data BarSetting = BarSetting { _barWidth :: Double }
 
 data Pie = Pie { _pieValue :: Double, _pieLabel :: String }
 
 $(makeLenses ''Percentage)
 $(makeLenses ''Bar)
+$(makeLenses ''BarSetting)
 $(makeLenses ''Pie)
 
-dev = renderSVG "test.svg" (mkWidth 400) $ pieChart [Pie 0.4 "Test", Pie 0.6 "Test2", Pie 0.5 "Test3", Pie 0.3 "Test4"] # frame 0.1
+dev = renderSVG "test.svg" (mkWidth 400) $ barChart (BarSetting 0.1) [Bar 25 "Test", Bar 10 "Test2", Bar 100 "Test2"] # frame 0.1
 
 percentageCircle :: Percentage -> Diagram B
 percentageCircle (Percentage p) =
@@ -75,21 +76,23 @@ roundedDialNeedle p width =
         # rotateAround (p2 (0, 0)) ((135.5 - (135.5 * 2 * p ^. percentage / 100)) @@ deg)
 
 
-barChart :: Diagram B
-barChart =
-       hsep 0.1 (strutX 0 : bars [Bar 25 "Test", Bar 10 "Test2", Bar 100 "Test2"])
+barChart :: BarSetting -> [Bar] -> Diagram B
+barChart settings bs =
+       hsep 0.1 (strutX 0 : bars settings bs)
     <> strutY 0.2
-    <> dashedBackground
+    <> dashedBackground (settings ^. barWidth * numberOfBars + 0.1 * numberOfBars + 0.1)
         # translateY 1
-        # opacity 0.05
+        # opacity 0.4
+    where
+        numberOfBars = fromIntegral (length bs)
 
-dashedBackground :: Diagram B
-dashedBackground = vsep 0.1 (replicate 10 (fromVertices (map p2 [(0, 0), (1, 0)]) # dashingN [0.01, 0.01] 0.01))
+dashedBackground :: Double -> Diagram B
+dashedBackground w = vsep 0.1 (replicate 10 (fromVertices (map p2 [(0, 0), (w, 0)]) # dashingN [0.01, 0.01] 0.01))
 
-colors = concatMap (`brewerSet` 9) [Pastel1, Pastel2, Set1, Set2, Set3, Paired]
+colors = cycle $ concatMap (`brewerSet` 9) [Pastel1, Pastel2, Set1, Set2, Set3, Paired]
 
-bars :: [Bar] -> [Diagram B]
-bars bs = zipWith (mkBar (maximum (bs ^.. folded . barValue))) bs colors
+bars :: BarSetting -> [Bar] -> [Diagram B]
+bars settings bs = zipWith (mkBar (maximum (bs ^.. folded . barValue))) bs colors
 
 mkBar maxValue bar color =
     let normalizedValue = bar ^. barValue / maxValue
@@ -109,7 +112,7 @@ mkBar maxValue bar color =
             # scale 0.05
             # fc color
     where
-        gradient v = mkLinearGradient (mkStops [(white, 0, 1), (color, 1, 1)]) (0 ^& (-0.3)) (0 ^& v) GradPad
+        gradient v = mkLinearGradient (mkStops [(white, 0, 1), (color, 0.4, 1)]) (0 ^& (-0.3)) (0 ^& v) GradPad
 
 yAxis = strokeLine $ fromVertices [0 ^& 0, 0 ^& 1]
 
