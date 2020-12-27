@@ -12,7 +12,7 @@ module ValueSVG where
 import           Control.Lens                  hiding (element, (#))
 import           Data.Colour.Palette.BrewerSet
 import           Diagrams.Backend.SVG
-import           Diagrams.Prelude hiding (Line)
+import           Diagrams.Prelude              hiding (Line)
 
 type Coordinate = (Double, Double)
 
@@ -33,7 +33,7 @@ $(makeLenses ''Pie)
 $(makeLenses ''Line)
 $(makeLenses ''LineSettings)
 
-dev = renderSVG "test.svg" (mkWidth 400) $ lineGraph (LineSettings 0.3) [Line [(0.1, 0.2), (0.4, 0.3)] "Test"] # frame 0.1
+dev = renderSVG "test.svg" (mkWidth 400) $ lineGraph (LineSettings 0.3) [Line [(1, 2), (4, 3), (7, 1), (10, 7)] "Test"] # frame 0.1
 
 percentageCircle :: Percentage -> Diagram B
 percentageCircle (Percentage p) =
@@ -131,30 +131,40 @@ pieChart pies = pieChart' pies (90 @@ deg) colors
     where
         sumOfValues = sum . map (^. pieValue) $ pies
         pieChart' [] _ _ = mempty
-        pieChart' (p:ps) accRatio (c:cs) = 
+        pieChart' (p:ps) accRatio (c:cs) =
             let ratio = ((-1) * 360 * p ^. pieValue / sumOfValues) @@ deg
                 newPie = wedge 1 (rotate accRatio xDir) ratio
                     # fc c
                     # lc c
                     -- # translate (0.1 *^ fromDirection (rotate (accRatio ^+^ ratio  ^/ 2) xDir))
                 restPies = pieChart' ps (accRatio ^+^ ratio) cs
-                label = 
+                label =
                     rect 0.1 0.1
                         # frame 0.1
                         # translateX 1.3
                         # translateY (fromIntegral (length (p:ps)) / 4 - 0.59)
                         # fc c
                         # lc c
-                    ||| topLeftText (p ^. pieLabel) 
-                        # scale 0.15 
+                    ||| topLeftText (p ^. pieLabel)
+                        # scale 0.15
                         # translateY (fromIntegral (length (p:ps)) / 4 - 0.5)
             in
                 newPie <> restPies <> label <> strutX 4
 
 
-lineGraph :: LineSettings -> [Line] -> Diagram B 
-lineGraph settings lines = 
+lineGraph :: LineSettings -> [Line] -> Diagram B
+lineGraph settings lines =
     strokeLine . mconcat $ map drawLine lines
+    <> atPoints (trailFromVertices $ concatMap vertices lines) (repeat $ circle 0.1)
     where
-        drawLine line = lineFromVertices $ map p2 (line ^. lineValues & traversed . _2 %~ (/ maxLineValue))
-        maxLineValue = maximum . concatMap (^.. lineValues . traversed . _2) $ lines
+        drawLine = lineFromVertices . vertices
+        vertices line = line ^. lineValues & traversed %~ p2 . normalize
+        normalize lineValues = lineValues & _2 %~ (/ maxYValue)
+                                          & _1 %~ ((/ maxXValue) . (*2.0))
+        maxYValue = maxValue _Y
+        maxXValue = maxValue _X
+        maxValue s = maximum . concatMap (^.. lineValues . traversed . s) $ lines
+
+
+_X = _1
+_Y = _2
