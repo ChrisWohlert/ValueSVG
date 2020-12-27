@@ -11,6 +11,7 @@ module ValueSVG where
 
 import           Control.Lens                  hiding (element, (#))
 import           Data.Colour.Palette.BrewerSet
+import qualified Debug.Trace                   as D
 import           Diagrams.Backend.SVG
 import           Diagrams.Prelude              hiding (Line)
 
@@ -33,7 +34,7 @@ $(makeLenses ''Pie)
 $(makeLenses ''Line)
 $(makeLenses ''LineSettings)
 
-dev = renderSVG "test.svg" (mkWidth 400) $ lineGraph (LineSettings 0.3) [Line [(1, 2), (4, 3), (7, 1), (10, 7)] "Test"] # frame 0.1
+dev = renderSVG "test.svg" (mkWidth 400) $ lineGraph (LineSettings 0.3) [Line [(1, 2), (4, (3)), (7, 1), (10, 7)] "Test"] # frame 0.1
 
 percentageCircle :: Percentage -> Diagram B
 percentageCircle (Percentage p) =
@@ -87,14 +88,14 @@ barChart :: BarSetting -> [Bar] -> Diagram B
 barChart settings bs =
        hsep 0.1 (strutX 0 : bars settings bs)
     <> strutY 0.2
-    <> dashedBackground (settings ^. barWidth * numberOfBars + 0.1 * numberOfBars + 0.1)
+    <> dashedBackground 0.1 (settings ^. barWidth * numberOfBars + 0.1 * numberOfBars + 0.1) 10
         # translateY 1
         # opacity 0.4
     where
         numberOfBars = fromIntegral (length bs)
 
-dashedBackground :: Double -> Diagram B
-dashedBackground w = vsep 0.1 (replicate 10 (fromVertices (map p2 [(0, 0), (w, 0)]) # dashingN [0.01, 0.01] 0.01))
+dashedBackground :: Double -> Double -> Int -> Diagram B
+dashedBackground sep w n = vsep sep (replicate n (fromVertices (map p2 [(0, 0), (w, 0)]) # dashingN [0.01, 0.01] 0.01))
 
 colors = cycle $ concatMap (`brewerSet` 9) [Pastel1, Pastel2, Set1, Set2, Set3, Paired]
 
@@ -154,16 +155,29 @@ pieChart pies = pieChart' pies (90 @@ deg) colors
 
 lineGraph :: LineSettings -> [Line] -> Diagram B
 lineGraph settings lines =
-    mconcat (map (showEnvelope . strokeTrail . fromVertices . vertices) lines)
-    <> atPoints (concatMap vertices lines) (repeat $ circle 0.01 # fc black # showEnvelope)
+    let lineDrawings = mconcat (zipWith drawLine lines colors)
+        bg = dashedBackground (height lineDrawings / 8) 2 10 # translateY 0.75 # opacity 0.4
+    in bg <> lineDrawings
     where
-        vertices line = line ^. lineValues & traversed %~ p2 . normalize
-        normalize lineValues = lineValues & _Y %~ (/ maxYValue)
-                                          & _X %~ ((/ maxXValue) . (*2.0))
-        maxYValue = maxValue _Y
-        maxXValue = maxValue _X
-        maxValue s = maximum . concatMap (^.. lineValues . traversed . s) $ lines
+        drawLine line color = lc color . strokeTrail . fromVertices . vertices $ line
+        vertices = map p2 . normalize
+        normalizedValues = concatMap normalize lines
+        normalize line = line ^. lineValues & traversed . _Y %~ (/ maxYValue)
+                                            & traversed . _X %~ ((/ maxXValue) . (*2.0))
+        maxYValue = maximum $ values _Y
+        maxXValue = maximum $ values _X
+        minYValue = minimum $ values _Y
+        values s = concatMap (^.. lineValues . traversed . s) $ lines
 
 
 _X = _1
 _Y = _2
+
+
+class Optional f a where
+    (???) :: f a -> a -> a
+    infixr 7 ???
+
+instance Optional Maybe a where
+    Just x ??? _  = x
+    Nothing ??? x = x
