@@ -154,13 +154,12 @@ pieChart pies = pieChart' pies (90 @@ deg) colors
 
 lineGraph :: LineSettings -> [Line] -> Diagram B
 lineGraph settings lines =
-    strokeLine . mconcat $ map drawLine lines
-    <> atPoints (trailFromVertices $ concatMap vertices lines) (repeat $ circle 0.1)
+    mconcat (map (showEnvelope . strokeTrail . fromVertices . vertices) lines)
+    <> atPoints (concatMap vertices lines) (repeat $ circle 0.01 # fc black # showEnvelope)
     where
-        drawLine = lineFromVertices . vertices
         vertices line = line ^. lineValues & traversed %~ p2 . normalize
-        normalize lineValues = lineValues & _2 %~ (/ maxYValue)
-                                          & _1 %~ ((/ maxXValue) . (*2.0))
+        normalize lineValues = lineValues & _Y %~ (/ maxYValue)
+                                          & _X %~ ((/ maxXValue) . (*2.0))
         maxYValue = maxValue _Y
         maxXValue = maxValue _X
         maxValue s = maximum . concatMap (^.. lineValues . traversed . s) $ lines
