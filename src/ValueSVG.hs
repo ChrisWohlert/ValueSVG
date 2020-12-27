@@ -12,7 +12,9 @@ module ValueSVG where
 import           Control.Lens                  hiding (element, (#))
 import           Data.Colour.Palette.BrewerSet
 import           Diagrams.Backend.SVG
-import           Diagrams.Prelude
+import           Diagrams.Prelude hiding (Line)
+
+type Coordinate = (Double, Double)
 
 newtype Percentage = Percentage { _percentage :: Double }
 
@@ -21,12 +23,17 @@ data BarSetting = BarSetting { _barWidth :: Double }
 
 data Pie = Pie { _pieValue :: Double, _pieLabel :: String }
 
+data Line = Line { _lineValues :: [Coordinate], _lineLabel :: String }
+data LineSettings = LineSettings { _lineWidth :: Double }
+
 $(makeLenses ''Percentage)
 $(makeLenses ''Bar)
 $(makeLenses ''BarSetting)
 $(makeLenses ''Pie)
+$(makeLenses ''Line)
+$(makeLenses ''LineSettings)
 
-dev = renderSVG "test.svg" (mkWidth 400) $ barChart (BarSetting 0.1) [Bar 25 "Test", Bar 10 "Test2", Bar 100 "Test2"] # frame 0.1
+dev = renderSVG "test.svg" (mkWidth 400) $ lineGraph (LineSettings 0.3) [Line [(0.1, 0.2), (0.4, 0.3)] "Test"] # frame 0.1
 
 percentageCircle :: Percentage -> Diagram B
 percentageCircle (Percentage p) =
@@ -92,12 +99,12 @@ dashedBackground w = vsep 0.1 (replicate 10 (fromVertices (map p2 [(0, 0), (w, 0
 colors = cycle $ concatMap (`brewerSet` 9) [Pastel1, Pastel2, Set1, Set2, Set3, Paired]
 
 bars :: BarSetting -> [Bar] -> [Diagram B]
-bars settings bs = zipWith (mkBar (maximum (bs ^.. folded . barValue))) bs colors
+bars settings bs = zipWith (mkBar (settings ^. barWidth) (maximum (bs ^.. folded . barValue))) bs colors
 
-mkBar maxValue bar color =
+mkBar width maxValue bar color =
     let normalizedValue = bar ^. barValue / maxValue
     in
-        roundedRect' 0.1 normalizedValue (with & radiusTL .~ 0.01
+        roundedRect' width normalizedValue (with & radiusTL .~ 0.01
                                              & radiusTR .~ 0.01)
             # translateY (normalizedValue / 2)
             # fillTexture (gradient normalizedValue)
@@ -143,3 +150,11 @@ pieChart pies = pieChart' pies (90 @@ deg) colors
                         # translateY (fromIntegral (length (p:ps)) / 4 - 0.5)
             in
                 newPie <> restPies <> label <> strutX 4
+
+
+lineGraph :: LineSettings -> [Line] -> Diagram B 
+lineGraph settings lines = 
+    strokeLine . mconcat $ map drawLine lines
+    where
+        drawLine line = lineFromVertices $ map p2 (line ^. lineValues & traversed . _2 %~ (/ maxLineValue))
+        maxLineValue = maximum . concatMap (^.. lineValues . traversed . _2) $ lines
