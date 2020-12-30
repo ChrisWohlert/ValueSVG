@@ -27,12 +27,13 @@ dependencies:
   - warp
   - diagrams
   - diagrams-lib
-  - diagrams-svg
+  - diagrams-rasterific
   - svg-builder
   - blaze-markup
   - lens
   - colour
   - palette
+  - JuicyPixels
 
 library:
   source-dirs: src

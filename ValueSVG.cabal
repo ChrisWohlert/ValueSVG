@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 54e5bb1935376cd39923fc47c2a2b86d7f0c517d9d80a7ab503407b49a338171
+-- hash: 045607b113d5fe4e07e971d45326767440dab09ab882f0421981bd8ff1553c2a
 
 name:           ValueSVG
 version:        0.1.0.0
@@ -33,14 +33,15 @@ library
   hs-source-dirs:
       src
   build-depends:
-      aeson
+      JuicyPixels
+    , aeson
     , base >=4.7 && <5
     , blaze-markup
     , bytestring
     , colour
     , diagrams
     , diagrams-lib
-    , diagrams-svg
+    , diagrams-rasterific
     , lens
     , palette
     , servant-server
@@ -57,7 +58,8 @@ executable ValueSVG-exe
       app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      ValueSVG
+      JuicyPixels
+    , ValueSVG
     , aeson
     , base
     , blaze-markup
@@ -65,7 +67,7 @@ executable ValueSVG-exe
     , colour
     , diagrams
     , diagrams-lib
-    , diagrams-svg
+    , diagrams-rasterific
     , lens
     , palette
     , servant-server
@@ -83,7 +85,8 @@ test-suite ValueSVG-test
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      ValueSVG
+      JuicyPixels
+    , ValueSVG
     , aeson
     , base
     , blaze-markup
@@ -91,7 +94,7 @@ test-suite ValueSVG-test
     , colour
     , diagrams
     , diagrams-lib
-    , diagrams-svg
+    , diagrams-rasterific
     , hspec
     , hspec-wai
     , hspec-wai-json

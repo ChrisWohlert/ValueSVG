@@ -12,7 +12,7 @@ module ValueSVG where
 import           Control.Lens                  hiding (element, (#))
 import           Data.Colour.Palette.BrewerSet
 import qualified Debug.Trace                   as D
-import           Diagrams.Backend.SVG
+import           Diagrams.Backend.Rasterific
 import           Diagrams.Prelude              hiding (Line)
 
 type Coordinate = (Double, Double)
@@ -34,7 +34,7 @@ $(makeLenses ''Pie)
 $(makeLenses ''Line)
 $(makeLenses ''LineSettings)
 
-dev = renderSVG "test.svg" (mkWidth 400) $ lineGraph (LineSettings 0.3) [Line [(1, 2), (4, (3)), (7, 1), (10, 7)] "Test"] # frame 0.1
+dev = renderRasterific "test.svg" (mkWidth 400) $ lineGraph (LineSettings 0.3) [Line [(1, 2), (4, 3), (7, 1), (10, 7)] "Test"] # frame 0.1
 
 percentageCircle :: Percentage -> Diagram B
 percentageCircle (Percentage p) =
@@ -181,3 +181,4 @@ class Optional f a where
 instance Optional Maybe a where
     Just x ??? _  = x
     Nothing ??? x = x
+
