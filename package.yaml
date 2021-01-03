@@ -28,8 +28,11 @@ dependencies:
   - diagrams
   - diagrams-lib
   - diagrams-rasterific
+  - diagrams-svg
+  - containers
   - svg-builder
   - blaze-markup
+  - transformers
   - lens
   - colour
   - palette

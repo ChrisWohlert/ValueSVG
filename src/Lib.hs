@@ -17,14 +17,14 @@ module Lib
 import           Codec.Picture
 import           Data.Aeson
 import           Data.Aeson.TH
-import           Diagrams.Backend.Rasterific
-import qualified Diagrams.Prelude            as D
-import           Graphics.Svg.Core           (renderBS)
+import           Diagrams.Backend.SVG
+import qualified Diagrams.Prelude         as D
+import           Graphics.Svg.Core        (renderBS)
 import           Network.Wai
 import           Network.Wai.Handler.Warp
 import           Servant
-import           Text.Blaze                  (Markup, unsafeLazyByteString)
-import           Text.Blaze.Renderer.Utf8    (renderMarkup)
+import           Text.Blaze               (Markup, unsafeLazyByteString)
+import           Text.Blaze.Renderer.Utf8 (renderMarkup)
 import           ValueSVG
 
 data User = User
@@ -57,8 +57,6 @@ users = [ User 1 "Isaac" "Newton"
         , User 2 "Albert" "Einstein"
         ]
 
-data SVG
-
 instance Accept SVG where
   contentType _ = "image/png"
 
@@ -66,4 +64,4 @@ instance MimeRender SVG Markup where
   mimeRender _ = renderMarkup
 
 diagramToMarkup :: D.Diagram B -> Markup
-diagramToMarkup = unsafeLazyByteString . encodePng . D.renderDia Rasterific (RasterificOptions (D.mkWidth 250))
+diagramToMarkup = unsafeLazyByteString . renderBS . D.renderDia SVG (SVGOptions (D.mkWidth 250) Nothing "" [] True)

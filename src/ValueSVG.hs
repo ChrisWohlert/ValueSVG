@@ -13,7 +13,10 @@ import           Control.Lens                  hiding (element, (#))
 import           Data.Colour.Palette.BrewerSet
 import qualified Debug.Trace                   as D
 import           Diagrams.Backend.Rasterific
+import           Diagrams.Backend.SVG
 import           Diagrams.Prelude              hiding (Line)
+import           SvgAnimation
+import           Util
 
 type Coordinate = (Double, Double)
 
@@ -34,9 +37,17 @@ $(makeLenses ''Pie)
 $(makeLenses ''Line)
 $(makeLenses ''LineSettings)
 
-dev = renderRasterific "test.svg" (mkWidth 400) $ lineGraph (LineSettings 0.3) [Line [(1, 2), (4, 3), (7, 1), (10, 7)] "Test"] # frame 0.1
+dev = do
+    svg
+    gif
 
-percentageCircle :: Percentage -> Diagram B
+svg = renderSVG "test.svg" (mkWidth 400) $ lineGraph (LineSettings 0.3) [Line [(1, 6), (4, 3), (7, 1), (10, 7)] "Test"] # bgFrame 0.1 white
+
+gif = animatedGif "test.gif" (mkWidth 400) LoopingForever 0 anim
+    where
+        anim = map (rect 4 4 <>) [ lineGraph (LineSettings 0.3) [Line [(1, 2), (4, 3), (7, 1), (10, 7)] "Test"] # bgFrame 0.1 white
+               , lineGraph (LineSettings 0.3) [Line [(1, 3), (4, 1), (7, 6), (10, 7)] "Test"] # bgFrame 0.1 white]
+
 percentageCircle (Percentage p) =
     text (show p ++ "%") # scale 0.4
                          # translateY (-0.05)
@@ -49,7 +60,6 @@ dial (Percentage p) = annularWedge 1 width (rotateBy (1/4) xDir) (360 @@ deg)
     where
         width = 0.8
 
-percentageHalfCircle :: Percentage -> Diagram B
 percentageHalfCircle p =
     text (show (p ^. percentage) ++ "%") # scale 0.4
                                          # translateY (-0.05)
@@ -62,7 +72,6 @@ halfDial p =
     where
         width = 0.8
 
-roundedDial :: Double -> Diagram B
 roundedDial width =
        (annularWedge 1 width (rotate ((-45) @@ deg) xDir) (270 @@ deg)
     <> circle 0.1
@@ -84,7 +93,6 @@ roundedDialNeedle p width =
         # rotateAround (p2 (0, 0)) ((135.5 - (135.5 * 2 * p ^. percentage / 100)) @@ deg)
 
 
-barChart :: BarSetting -> [Bar] -> Diagram B
 barChart settings bs =
        hsep 0.1 (strutX 0 : bars settings bs)
     <> strutY 0.2
@@ -94,12 +102,10 @@ barChart settings bs =
     where
         numberOfBars = fromIntegral (length bs)
 
-dashedBackground :: Double -> Double -> Int -> Diagram B
 dashedBackground sep w n = vsep sep (replicate n (fromVertices (map p2 [(0, 0), (w, 0)]) # dashingN [0.01, 0.01] 0.01))
 
 colors = cycle $ concatMap (`brewerSet` 9) [Pastel1, Pastel2, Set1, Set2, Set3, Paired]
 
-bars :: BarSetting -> [Bar] -> [Diagram B]
 bars settings bs = zipWith (mkBar (settings ^. barWidth) (maximum (bs ^.. folded . barValue))) bs colors
 
 mkBar width maxValue bar color =
@@ -126,8 +132,6 @@ yAxis = strokeLine $ fromVertices [0 ^& 0, 0 ^& 1]
 
 xAxis = strokeLine $ fromVertices [0 ^& 0, 1 ^& 0]
 
-
-pieChart :: [Pie] -> Diagram B
 pieChart pies = pieChart' pies (90 @@ deg) colors
     where
         sumOfValues = sum . map (^. pieValue) $ pies
@@ -152,8 +156,6 @@ pieChart pies = pieChart' pies (90 @@ deg) colors
             in
                 newPie <> restPies <> label <> strutX 4
 
-
-lineGraph :: LineSettings -> [Line] -> Diagram B
 lineGraph settings lines =
     let lineDrawings = mconcat (zipWith drawLine lines colors)
         bg = dashedBackground (height lineDrawings / 8) 2 10 # translateY 0.75 # opacity 0.4
@@ -172,13 +174,3 @@ lineGraph settings lines =
 
 _X = _1
 _Y = _2
-
-
-class Optional f a where
-    (???) :: f a -> a -> a
-    infixr 7 ???
-
-instance Optional Maybe a where
-    Just x ??? _  = x
-    Nothing ??? x = x
-
