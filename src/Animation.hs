@@ -25,9 +25,10 @@ import           Util
 type Time = Double
 
 data StartTime = Normal | Delay Double deriving (Show)
+data Duration = Duration Double | Static deriving (Show)
 
 data AnimationOptions = AnimationOptions { _delay             :: StartTime
-                                         , _animationDuration :: Double
+                                         , _animationDuration :: Duration
                                          } deriving (Show)
 
 data Animation a = Animation { _animation        :: Time -> a
@@ -45,62 +46,70 @@ data AnimationState a = AnimationState { _scenes :: [Scene a]
 type Animator a = State (AnimationState a) ()
 
 
+data SceneState a = SceneState { _currentFrame :: a, _frames :: M.Map Int a, _currentFrameIndex :: Int } deriving (Show)
+
+$(makeLenses ''SceneState)
+
+
+
 $(makeLenses ''Animation)
 $(makeLenses ''AnimationOptions)
 $(makeLenses ''Scene)
 $(makeLenses ''AnimationState)
 
 play :: Monoid a => (Time -> a) -> Animator a
-play x = play' x (AnimationOptions Normal 1)
+play x = play' x withOptions
 
 play' :: Monoid a => (Time -> a) -> AnimationOptions -> Animator a
-play' x o = do
-    scenes %= (Scene [Animation x o]:)
+play' x o = scenes %= (Scene [Animation x o]:)
 
 fork :: Monoid a => (Time -> a) -> Animator a
-fork x = fork' x (AnimationOptions Normal 1)
+fork x = fork' x withOptions
 
 fork' :: Monoid a => (Time -> a) -> AnimationOptions -> Animator a
-fork' x o = do
-    modify (\ s -> s & scenes . element 0 . animations %~ (Animation x o :))
+fork' x o = scenes . element 0 . animations %= (Animation x o :)
 
-playAnimation :: forall a. Monoid a => Int -> Double -> Animator a -> [a]
-playAnimation fps duration s =
+static x = static' x withOptions
+static' x o = play' (const x) $ o & animationDuration .~ Static
+
+withOptions = AnimationOptions Normal (Duration 1)
+
+
+playAnimation :: forall a. Monoid a => Int -> Animator a -> [a]
+playAnimation fps s =
     let aState = execState s (AnimationState [])
-        getScenes = aState ^.. scenes . traversed
-        numberOfFramesInScene :: Scene a -> Double
-        numberOfFramesInScene scene =
-            (duration / fromIntegral (lengthOf folded getScenes)) * fromIntegral fps * (getSceneDuration scene / sumOfDurations)
-        getSceneDuration :: Scene a -> Double
-        getSceneDuration scene = maximum (scene ^.. animations . folded . animationOptions . animationDuration)
-        sumOfDurations :: Double
-        sumOfDurations = sum . map getSceneDuration $ getScenes
-        playScene :: Monoid a => Scene a -> [a]
-        playScene x = map (\ t -> mconcat (map (\ a -> a t) (x ^.. animations . folded . animation))) [0.001, (1 / (D.trace (show $ numberOfFramesInScene x) (numberOfFramesInScene x))) .. 1]
-    in concatMap playScene (D.trace (show getScenes) getScenes)
+        getScenes = reverse $ aState ^.. scenes . traversed
+    in animate fps getScenes
 
-
-data SceneState a = SceneState { _currentFrame :: a, _frames :: M.Map Int a, _currentFrameIndex :: Int }
-
-$(makeLenses ''SceneState)
-
-animate :: Monoid a => Int -> [Scene a] -> [a]
+animate :: (Monoid a) => Int -> [Scene a] -> [a]
 animate fps scenes =
     let (SceneState _ frames _) = execState (animateScenes fps scenes) (SceneState mempty M.empty 0)
-    in M.elems frames
+    in M.elems $ D.trace (show $ M.size frames) frames
 
 animateScenes :: Monoid a => Int -> [Scene a] -> State (SceneState a) ()
 animateScenes fps scenes = do
     mapM_ animateScene scenes
     where
         animateScene scene = do
-            endFrames <- mapM animateAnimation $ scene ^.. animations . folded
-            currentFrameIndex .= maximum endFrames
-        animateAnimation (Animation a options) = do
+            endFrames <- mapM animateAnimation . reverse $ scene ^.. animations . folded
+            let lastFrameOfScene = maximum . map snd $ endFrames
+            mapM_ (makeLastFrameOfAnimationStick lastFrameOfScene) endFrames
+            currentFrameIndex .= lastFrameOfScene
+        animateAnimation ani@(Animation a options) = do
+            animationFrames <- getAnimationFrames options
+            mapM_ (\ (t, frame) -> insertAnimation (a t) frame) animationFrames
+            currentFrame %= (a 1 <>)
+            return (ani, snd . last $ animationFrames)
+        insertAnimation a f = do
+            c <- use currentFrame
+            frames . at f %= Just . maybe (a <> c) (a <>)
+        getAnimationFrames options = do
             i <- use currentFrameIndex
-            let animationFrames = [i .. i + (round (options ^. animationDuration) * fps)]
-            mapM_ (\ (t, frame) -> do
-                frames . at frame %= Just . maybe (a t) (a t <>)
-                currentFrame %= (a 1 <>)) $ zip [0.001, (1 / fromIntegral (length animationFrames)) .. 1] animationFrames
-            return $ last animationFrames
-
+            let frames = case options ^. animationDuration of
+                            Duration d -> zip [0, (1 / (d * fromIntegral fps)) .. 1] [i ..]
+                            Static -> [(1, i)]
+            return $ case options ^. delay of
+                        Normal  -> frames
+                        Delay d -> frames & traversed . _2 %~ (+ round (d * fromIntegral fps))
+        makeLastFrameOfAnimationStick endOfScene (Animation a _, endOfAnimation) =
+            mapM_ (insertAnimation $ a 1) [endOfAnimation + 1 .. endOfScene]

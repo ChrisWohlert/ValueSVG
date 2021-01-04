@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE MultiParamTypeClasses     #-}
+{-# LANGUAGE NegativeLiterals          #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE TemplateHaskell           #-}
@@ -9,13 +10,15 @@
 
 module ValueSVG where
 
+import           Animation
 import           Control.Lens                  hiding (element, (#))
 import           Data.Colour.Palette.BrewerSet
 import qualified Debug.Trace                   as D
 import           Diagrams.Backend.Rasterific
 import           Diagrams.Backend.SVG
 import           Diagrams.Prelude              hiding (Line)
-import           SvgAnimation
+import           Fmt
+import qualified SvgAnimation                  as S
 import           Util
 
 type Coordinate = (Double, Double)
@@ -41,15 +44,14 @@ dev = do
     svg
     gif
 
-svg = renderSVG "test.svg" (mkWidth 400) $ lineGraph (LineSettings 0.3) [Line [(1, 6), (4, 3), (7, 1), (10, 7)] "Test"] # bgFrame 0.1 white
+svg = renderSVG "test.svg" (mkWidth 400) $ (circle 0.5 <> circle 1 <> rect 2 2 # fc blue :: QDiagram SVG V2 Double Any)
 
-gif = animatedGif "test.gif" (mkWidth 400) LoopingForever 0 anim
+gif = S.mkGif anim
     where
-        anim = map (rect 4 4 <>) [ lineGraph (LineSettings 0.3) [Line [(1, 2), (4, 3), (7, 1), (10, 7)] "Test"] # bgFrame 0.1 white
-               , lineGraph (LineSettings 0.3) [Line [(1, 3), (4, 1), (7, 6), (10, 7)] "Test"] # bgFrame 0.1 white]
+        anim = barChart (BarSetting 0.1) [Bar 3 "Test 1", Bar 5 "Test 2", Bar 2 "Test 3", Bar 6 "Test 4"]
 
 percentageCircle (Percentage p) =
-    text (show p ++ "%") # scale 0.4
+    textP 0 p # scale 0.4
                          # translateY (-0.05)
     <> dial (Percentage p) # fc purple
                            # lc purple
@@ -61,7 +63,7 @@ dial (Percentage p) = annularWedge 1 width (rotateBy (1/4) xDir) (360 @@ deg)
         width = 0.8
 
 percentageHalfCircle p =
-    text (show (p ^. percentage) ++ "%") # scale 0.4
+    textP 0 (p ^. percentage) # scale 0.4
                                          # translateY (-0.05)
     <> halfDial p # fc purple
                   # lc purple
@@ -93,40 +95,47 @@ roundedDialNeedle p width =
         # rotateAround (p2 (0, 0)) ((135.5 - (135.5 * 2 * p ^. percentage / 100)) @@ deg)
 
 
-barChart settings bs =
-       hsep 0.1 (strutX 0 : bars settings bs)
-    <> strutY 0.2
-    <> dashedBackground 0.1 (settings ^. barWidth * numberOfBars + 0.1 * numberOfBars + 0.1) 10
-        # translateY 1
-        # opacity 0.4
+barChart settings bs = do
+    static $ boundingRect (animateBars 1) # lc white # bgFrame 0.1 white
+    play animateBars
     where
+        animateBars t = hsep 0.1 (strutX 0 : bars settings bs t)
+                     <> strutY 0.2
+                     <> dashedBackground 0.1 (settings ^. barWidth * numberOfBars + 0.1 * numberOfBars + 0.1) 10
+                         # translateY 1
+                         # opacity 0.4
         numberOfBars = fromIntegral (length bs)
 
 dashedBackground sep w n = vsep sep (replicate n (fromVertices (map p2 [(0, 0), (w, 0)]) # dashingN [0.01, 0.01] 0.01))
 
-colors = cycle $ concatMap (`brewerSet` 9) [Pastel1, Pastel2, Set1, Set2, Set3, Paired]
+colors = cycle $ concatMap (`brewerSet` 9) [Set1, Pastel1, Pastel2, Set2, Set3, Paired]
 
-bars settings bs = zipWith (mkBar (settings ^. barWidth) (maximum (bs ^.. folded . barValue))) bs colors
+bars settings bs t = zipWith (mkBar t (settings ^. barWidth) (maximum (bs ^.. folded . barValue))) bs colors
 
-mkBar width maxValue bar color =
-    let normalizedValue = bar ^. barValue / maxValue
+mkBar t width maxValue bar color =
+    let normalizedValue = bar ^. barValue / maxValue * t
     in
         roundedRect' width normalizedValue (with & radiusTL .~ 0.01
-                                             & radiusTR .~ 0.01)
+                                                 & radiusTR .~ 0.01)
             # translateY (normalizedValue / 2)
             # fillTexture (gradient normalizedValue)
             # lineTexture (gradient normalizedValue)
         <> topLeftText (bar ^. barLabel)
             # font "Tahoma"
             # fc color
+            # translateY (-0.2)
             # scale 0.05
             # rotateBy (-1/8)
-        <> text (show $ bar ^. barValue)
-            # translateY (0.4 + 20 * normalizedValue)
+        <> textP 1 (bar ^. barValue * t)
+            # translateY (0.8 + 20 * normalizedValue)
             # scale 0.05
             # fc color
     where
         gradient v = mkLinearGradient (mkStops [(white, 0, 1), (color, 0.4, 1)]) (0 ^& (-0.3)) (0 ^& v) GradPad
+
+textF = text . fmt
+
+textP d p = textF $ ""+|fixedF d p|+"%"
 
 yAxis = strokeLine $ fromVertices [0 ^& 0, 0 ^& 1]
 

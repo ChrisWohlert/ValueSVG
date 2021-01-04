@@ -37,6 +37,8 @@ dependencies:
   - colour
   - palette
   - JuicyPixels
+  - formatting
+  - fmt
 
 library:
   source-dirs: src

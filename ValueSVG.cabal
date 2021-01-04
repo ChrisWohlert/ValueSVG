@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: e930f264d79846ae68db04d2b3947135d0e3b3b6d26c31c352afe098c1aef57a
+-- hash: a9d9b1c689eb9c7d28dec1d6f3cefc42d0146f2f96584cf2cc7c6e7686ee5b2f
 
 name:           ValueSVG
 version:        0.1.0.0
@@ -47,6 +47,8 @@ library
     , diagrams-lib
     , diagrams-rasterific
     , diagrams-svg
+    , fmt
+    , formatting
     , lens
     , palette
     , servant-server
@@ -76,6 +78,8 @@ executable ValueSVG-exe
     , diagrams-lib
     , diagrams-rasterific
     , diagrams-svg
+    , fmt
+    , formatting
     , lens
     , palette
     , servant-server
@@ -106,6 +110,8 @@ test-suite ValueSVG-test
     , diagrams-lib
     , diagrams-rasterific
     , diagrams-svg
+    , fmt
+    , formatting
     , hspec
     , hspec-wai
     , hspec-wai-json
