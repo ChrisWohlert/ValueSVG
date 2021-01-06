@@ -12,10 +12,11 @@ module ValueSVG where
 
 import           Animation
 import           Control.Lens                  hiding (element, (#))
+import           Control.Monad
 import           Data.Colour.Palette.BrewerSet
 import qualified Debug.Trace                   as D
 import           Diagrams.Backend.Rasterific
-import           Diagrams.Backend.SVG
+import qualified Diagrams.Backend.SVG          as Svg
 import           Diagrams.Prelude              hiding (Line)
 import           Fmt
 import qualified SvgAnimation                  as S
@@ -44,11 +45,16 @@ dev = do
     svg
     gif
 
-svg = renderSVG "test.svg" (mkWidth 400) $ (circle 0.5 <> circle 1 <> rect 2 2 # fc blue :: QDiagram SVG V2 Double Any)
+svg = Svg.renderSVG "test.svg" (mkWidth 400) $ (circle 0.5 <> circle 1 <> rect 2 2 # fc blue :: QDiagram Svg.SVG V2 Double Any)
 
-gif = S.mkGif anim
+gif = S.mkGif lineGraphAnim
     where
-        anim = barChart (BarSetting 0.1) [Bar 3 "Test 1", Bar 5 "Test 2", Bar 2 "Test 3", Bar 6 "Test 4"]
+        --barChartAnim = barChart (BarSetting 0.1) [Bar 3 "Test 1", Bar 5 "Test 2", Bar 2 "Test 3", Bar 6 "Test 4"]
+        lineGraphAnim = lineGraph (LineSettings 0.1) [ Line [(1, 1), (2, 2), (3, 4), (4, 3)] "Test 1"
+                                                     , Line [(1, 3), (2, 1.5), (3, 2), (4, 1)] "Test 1"]
+        tt = do
+            static $ rect 2 2 # frame 1
+            playAll [\ t -> rect (0.5 * t) 1 # lc white, \ t -> rect (0.7 * t) 1 # lc white, \t -> rect (1 * t) 1 # lc white]
 
 percentageCircle (Percentage p) =
     textP 0 p # scale 0.4
@@ -108,6 +114,7 @@ barChart settings bs = do
 
 dashedBackground sep w n = vsep sep (replicate n (fromVertices (map p2 [(0, 0), (w, 0)]) # dashingN [0.01, 0.01] 0.01))
 
+colors :: [Colour Double]
 colors = cycle $ concatMap (`brewerSet` 9) [Set1, Pastel1, Pastel2, Set2, Set3, Paired]
 
 bars settings bs t = zipWith (mkBar t (settings ^. barWidth) (maximum (bs ^.. folded . barValue))) bs colors
@@ -165,20 +172,26 @@ pieChart pies = pieChart' pies (90 @@ deg) colors
             in
                 newPie <> restPies <> label <> strutX 4
 
-lineGraph settings lines =
-    let lineDrawings = mconcat (zipWith drawLine lines colors)
-        bg = dashedBackground (height lineDrawings / 8) 2 10 # translateY 0.75 # opacity 0.4
-    in bg <> lineDrawings
-    where
-        drawLine line color = lc color . strokeTrail . fromVertices . vertices $ line
-        vertices = map p2 . normalize
-        normalizedValues = concatMap normalize lines
-        normalize line = line ^. lineValues & traversed . _Y %~ (/ maxYValue)
-                                            & traversed . _X %~ ((/ maxXValue) . (*2.0))
-        maxYValue = maximum $ values _Y
-        maxXValue = maximum $ values _X
-        minYValue = minimum $ values _Y
-        values s = concatMap (^.. lineValues . traversed . s) $ lines
+lineGraph :: LineSettings -> [Line] -> Animator (Diagram B)
+lineGraph settings lines = do
+    static $ rect 2 1.2 # bgFrame 0.1 white # translateX 1 # translateY 0.6
+    static bg
+    forkAnims $ zipWith animateLine lines colors
+        where
+            animateLine line color = playAll $
+                map (\ (from, to) t -> translateX (-minNormalizedXValue) . moveTo from . lc color . strokeLine . fromVertices $ [from, from .+^ (to .-. from) ^* t]) (linePairs line)
+            linePairs line = pairs $ offsets line
+            bg = dashedBackground (1.2 / 16) 2 16 # translateY 1.2 # opacity 0.4
+            maxYValue = maximum $ values _Y
+            maxXValue = maximum $ values _X
+            minXValue = minimum $ values _X
+            minNormalizedXValue = minimum $ map (minimum . map fst . normalize) lines
+            values s = concatMap (^.. lineValues . traversed . s) lines
+            pairs xs = zip xs (tail xs)
+            vertices = map p2 . normalize
+            offsets = map p2 . normalize
+            normalize line = line ^. lineValues & traversed . _Y %~ (/ maxYValue)
+                                                & traversed . _X %~ ((/ (maxXValue - minXValue)) . (*2.0))
 
 
 _X = _1
