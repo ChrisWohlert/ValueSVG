@@ -16,8 +16,8 @@ import           Control.Monad
 import           Data.Colour.Palette.BrewerSet
 import qualified Debug.Trace                   as D
 import           Diagrams.Backend.Rasterific
-import qualified Diagrams.Backend.SVG          as Svg
 import           Diagrams.Prelude              hiding (Line)
+import           Diagrams.TrailLike
 import           Fmt
 import qualified SvgAnimation                  as S
 import           Util
@@ -41,13 +41,7 @@ $(makeLenses ''Pie)
 $(makeLenses ''Line)
 $(makeLenses ''LineSettings)
 
-dev = do
-    svg
-    gif
-
-svg = Svg.renderSVG "test.svg" (mkWidth 400) $ (circle 0.5 <> circle 1 <> rect 2 2 # fc blue :: QDiagram Svg.SVG V2 Double Any)
-
-gif = S.mkGif lineGraphAnim
+gif = S.mkGif dTrail
     where
         --barChartAnim = barChart (BarSetting 0.1) [Bar 3 "Test 1", Bar 5 "Test 2", Bar 2 "Test 3", Bar 6 "Test 4"]
         lineGraphAnim = lineGraph (LineSettings 0.1) [ Line [(1, 1), (2, 2), (3, 4), (4, 3)] "Test 1"
@@ -55,6 +49,9 @@ gif = S.mkGif lineGraphAnim
         tt = do
             static $ rect 2 2 # frame 1
             playAll [\ t -> rect (0.5 * t) 1 # lc white, \ t -> rect (0.7 * t) 1 # lc white, \t -> rect (1 * t) 1 # lc white]
+        dTrail = do
+            static $ rect 3 3 # fc white
+            play' (S.drawFromVertices [0 ^& 0, 1 ^& 1, 1.1 ^& 1.3, 0.2 ^& 1, 1.5 ^& 0.6, 0 ^& 0]) (withOptions & animationDuration . _Duration .~ 3)
 
 percentageCircle (Percentage p) =
     textP 0 p # scale 0.4
