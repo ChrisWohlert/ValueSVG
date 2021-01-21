@@ -29,8 +29,8 @@ type Time = Double
 data StartTime = Normal | Delay Double deriving (Show)
 data Duration = Duration Double | Static deriving (Show)
 
-data AnimationOptions = AnimationOptions { _delay             :: StartTime
-                                         , _animationDuration :: Duration
+data AnimationOptions = AnimationOptions { _delay    :: StartTime
+                                         , _duration :: Duration
                                          } deriving (Show)
 
 data Animation a = Animation { _animation        :: Time -> a
@@ -71,7 +71,7 @@ fork' :: Monoid a => (Time -> a) -> AnimationOptions -> Animator a
 fork' x o = scenes . element 0 . animations %= (Animation x o :)
 
 static x = static' x withOptions
-static' x o = play' (const x) $ o & animationDuration .~ Static
+static' x o = play' (const x) $ o & duration .~ Static
 
 withOptions = AnimationOptions Normal (Duration 1)
 
@@ -127,8 +127,8 @@ animateScenes fps scenes = do
             frames . at f %= Just . maybe (a <> c) (a <>)
         getAnimationFrames options = do
             i <- use currentFrameIndex
-            let frames = case options ^. animationDuration of
-                            Duration d -> zip [0, (1 / (d * fromIntegral fps)) .. 1] [i ..]
+            let frames = case options ^. duration of
+                            Duration d -> zip [0.0001, (1 / (d * fromIntegral fps)) .. 1] [i ..]
                             Static -> [(1, i)]
             return $ case options ^. delay of
                         Normal  -> frames
@@ -136,3 +136,9 @@ animateScenes fps scenes = do
         makeLastFrameOfAnimationStick endOfScene (Animation a _, endOfAnimation) =
             mapM_ (insertAnimation $ a 1) [endOfAnimation + 1 .. endOfScene]
 
+
+(<#>) :: Monoid a => (Time -> a) -> (a -> a) -> (Time -> a)
+a <#> b = b . a
+
+(<##>) :: (Monoid a) => (Time -> a) -> (Time -> a -> a) -> (Time -> a)
+a <##> f = \ t -> f t (a t)

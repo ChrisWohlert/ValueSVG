@@ -7,11 +7,11 @@
 
 module Util where
 
-import           Diagrams.Backend.Rasterific
 import           Diagrams.Backend.SVG
-import           Diagrams.Prelude            hiding (Line)
+import           Diagrams.Prelude     hiding (Line)
 import           Fmt
 
+import qualified Debug.Trace          as D
 
 class Optional f a where
     (???) :: f a -> a -> a
@@ -22,3 +22,8 @@ instance Optional Maybe a where
     Nothing ??? x = x
 
 
+takePart :: Double -> [a] -> [a]
+takePart t xs = take (ceiling $ t * fromIntegral (length xs)) xs
+
+
+ptrace x = D.trace (show x) x

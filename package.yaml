@@ -39,6 +39,7 @@ dependencies:
   - JuicyPixels
   - formatting
   - fmt
+  - SVGFonts
 
 library:
   source-dirs: src

@@ -1,4 +1,14 @@
-module SvgAnimation where
+{-# LANGUAGE DataKinds                 #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE MultiParamTypeClasses     #-}
+{-# LANGUAGE NegativeLiterals          #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedStrings         #-}
+{-# LANGUAGE TemplateHaskell           #-}
+{-# LANGUAGE TypeFamilies              #-}
+
+module SvgAnimation (mkGif, drawTrail, drawTrailAt, playTrail, getTrail, getTrailAt) where
 
 
 import           Animation
@@ -11,27 +21,32 @@ import           Diagrams.Prelude            hiding (Time)
 
 
 mkGif :: Animator (Diagram B) -> IO ()
-mkGif anim = animatedGif "test.gif" (mkWidth 400) LoopingNever 2 (playAnimation 50 anim)
+mkGif anim = animatedGif "test.gif" (mkWidth 800) LoopingNever 2 (playAnimation 50 anim)
 
 
+drawTrail :: Trail V2 Double -> Time -> Diagram B
+drawTrail trail t = strokeTrail $ getTrail trail t
 
-drawFromVertices :: [Point V2 Double] -> Time -> Diagram B
-drawFromVertices b t = strokePath . fromOffsets . cutAtTimeDistance t . makeVector . fromVertices $ b
+drawTrailAt :: P2 Double -> Trail V2 Double -> Time -> Diagram B
+drawTrailAt p trail t = strokeLocTrail $ getTrailAt p trail t
 
-makeVector :: [Point V2 Double] -> [V2 Double]
-makeVector xs = zipWith (.-.) xs (tail xs)
+getTrail :: Trail V2 Double -> Time -> Trail V2 Double
+getTrail trail t = fromSegments (cutTrailAtTimeDistance t $ trailSegments trail)
 
-takePart :: Time -> [a] -> [a]
-takePart t xs = take (round $ fromIntegral (length xs) * t) xs
+getTrailAt :: P2 Double -> Trail V2 Double -> Time -> Located (Trail V2 Double)
+getTrailAt p trail t = getTrail trail t `at` p
 
-sumDistance = foldr ((+) . norm) 0
+sumTrailDistance = foldr ((+) . stdArcLength) 0
 
-cutAtTimeDistance :: Double -> [V2 Double] -> [V2 Double]
-cutAtTimeDistance t xs =
+cutTrailAtTimeDistance t xs =
     let
-        totalD = sumDistance xs * t
+        totalD = sumTrailDistance xs * t
     in
-        foldl (\ acc a -> if sumDistance (a:acc) <= totalD then acc ++ [a] else acc ++ [normalize a ^* (totalD - sumDistance acc)]) [] xs
+        foldl (\ acc a ->
+            if sumTrailDistance (a:acc) <= totalD
+                then acc ++ [a]
+                else acc ++ [adjust a (with & adjSide .~ End
+                                            & adjMethod .~ ToAbsolute (maximum [0.001, totalD - sumTrailDistance acc]))]) [] xs
 
-scaleLastVertice t [] = []
-scaleLastVertice t xs = init xs ++ [last xs ^* t]
+
+playTrail = play . drawTrail

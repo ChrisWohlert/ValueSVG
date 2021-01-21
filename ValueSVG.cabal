@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: a9d9b1c689eb9c7d28dec1d6f3cefc42d0146f2f96584cf2cc7c6e7686ee5b2f
+-- hash: a920c60b201a7f2c119e10376aee74bdaf7e20a9e926ea34e1288f7dc195854e
 
 name:           ValueSVG
 version:        0.1.0.0
@@ -37,6 +37,7 @@ library
       src
   build-depends:
       JuicyPixels
+    , SVGFonts
     , aeson
     , base >=4.7 && <5
     , blaze-markup
@@ -67,6 +68,7 @@ executable ValueSVG-exe
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       JuicyPixels
+    , SVGFonts
     , ValueSVG
     , aeson
     , base
@@ -99,6 +101,7 @@ test-suite ValueSVG-test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       JuicyPixels
+    , SVGFonts
     , ValueSVG
     , aeson
     , base
