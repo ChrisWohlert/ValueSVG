@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: a920c60b201a7f2c119e10376aee74bdaf7e20a9e926ea34e1288f7dc195854e
+-- hash: 3b6fc3ec9ce146cd395a96e6424da3f2c398643796a9e6f9e921dc82b51ef5bb
 
 name:           ValueSVG
 version:        0.1.0.0
@@ -28,6 +28,7 @@ library
   exposed-modules:
       Animation
       Lib
+      Signal
       SvgAnimation
       Util
       ValueSVG
@@ -51,6 +52,7 @@ library
     , fmt
     , formatting
     , lens
+    , linear
     , palette
     , servant-server
     , svg-builder
@@ -83,6 +85,7 @@ executable ValueSVG-exe
     , fmt
     , formatting
     , lens
+    , linear
     , palette
     , servant-server
     , svg-builder
@@ -119,6 +122,7 @@ test-suite ValueSVG-test
     , hspec-wai
     , hspec-wai-json
     , lens
+    , linear
     , palette
     , servant-server
     , svg-builder

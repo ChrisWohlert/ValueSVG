@@ -11,6 +11,7 @@
 module ValueSVG where
 
 import           Animation
+import Prelude hiding (log)
 import           Control.Lens                  hiding (at, element, none, (#))
 import           Control.Monad
 import           Data.Colour.Palette.BrewerSet
@@ -23,6 +24,7 @@ import           Fmt
 import           Graphics.SVGFonts
 import           SvgAnimation
 import           Util
+import Signal
 
 newtype Percentage = Percentage { _percentage :: Double }
 
@@ -41,11 +43,11 @@ $(makeLenses ''Pie)
 $(makeLenses ''Line)
 $(makeLenses ''LineSettings)
 
-gif = mkGif lineGraphAnim
+gif = mkGif lineGraphAnim --dBez
     where
         --barChartAnim = barChart (BarSetting 0.1) [Bar 3 "Test 1", Bar 5 "Test 2", Bar 2 "Test 3", Bar 6 "Test 4"]
-        lineGraphAnim = lineGraph (LineSettings 0.005 (map show [-4, -3 .. 4]))
-                                                    [ Line [3.5, 10, 1, 0, 5, 3, 2, 1, 5] "Test 1"
+        lineGraphAnim = lineGraph (LineSettings 0.008 (map show [-4, -3 .. 4]))
+                                                    [ Line [3.5, 10, 1, 0.1, 5, 3, 2, 1, 5] "Test 1"
                                                     , Line [1, 1, 3, 10, 27, 7, 10, 11, 3] "Test 2"]
         tt = do
             static $ rect 2 2 # frame 1
@@ -60,8 +62,11 @@ gif = mkGif lineGraphAnim
             static $ rect 2 2 # frame 1
             play $ drawTrail (circle 1) <#> lc white
         dBez = do
-            static $ rect 10 7 # fc white # translateX 4.5
-            play . drawTrail . bspline . zipWith (curry p2) [0 .. 8] $ cycle [0, 1]
+            static $ rect 3 3 # fc white
+            static $ zip [0.0001, (1 / 50) .. 1] (cubicBezierS (1 ^& 0, 0 ^& 1) <$> [0.0001, (1 / 50) .. 1])
+                        # map p2
+                        # fromVertices
+                        # strokeLine
         asd = do
             static $ rect 4 4 # bgFrame 1 white
             play' (drawTrail (circle 1)
@@ -197,27 +202,44 @@ pieChart pies = pieChart' pies (90 @@ deg) colors
 lineGraph :: LineSettings -> [Line] -> Animator (Diagram B)
 lineGraph settings lines =
     let
-        width = 2
-        height = 1.4
+        w = 2
+        h = 1.4
         drawLine l c = drawTrailAt (0 ^& firstYValueNormalized l) (fromVertices $ vertices l)
                             # lwL (settings ^. lineWidth)
                             # lc c
-        --drawLineBackground l c = \ t -> (fromVertices [(2 * t) ^& 0, 0 ^& 0, 0 ^& firstYValueNormalized l]
-        --                                <> getTrail (fromVertices $ vertices l) t)
-        --                                # closeTrail # stroke # fc c # translateX (2 * t) # lw 0 # opacity 0.4
-        bg = dashedBackground (height / 5) 2 5 # translateY height # opacity 0.2 # lwN 0.005
-        maxYValue = ptrace $ getHighestYValue values
-        xValues = [0, (width / fromIntegral (length (settings ^. xAxis) - 1)) .. width] :: [Double]
-        firstYValueNormalized l = head . normalize $ l
+        drawLineBackground l c t = 
+            (fromVertices [(width $ drawTrail (fromVertices $ vertices l) t) ^& 0, 0 ^& 0, 0 ^& firstYValueNormalized l]
+            <> getTrail (fromVertices $ vertices l) t)
+            # closeTrail
+            # stroke
+            # fc c
+            # translateX (width $ drawTrail (fromVertices $ vertices l) t)
+            # lw 0
+            # opacity 0.4
+        bg = dashedBackground (h / 5) 2 5 # translateY h # opacity 0.2 # lwN 0.0035
+        maxYValue = getHighestYValue values
+        xValues = [0, (w / fromIntegral (length (settings ^. xAxis) - 1)) .. w] :: [Double]
+        firstYValueNormalized = head . normalize
         values = concatMap _lineValues lines
         vertices l = zipWith (curry p2) xValues (normalize l)
         normalize :: Line -> [Double]
-        normalize line = map ((height *) . (/ maxYValue)) $ line ^. lineValues
+        normalize line = map ((h *) . (/ maxYValue)) $ line ^. lineValues
+        yLabels = map (\ v -> 
+                textSVG (show v) 1
+                    # stroke
+                    # fc black
+                    # scale 0.06
+                    # lw 0 
+                    # fc white
+            ||| strutX 0.02 
+            ||| fromOffsets [-0.03 ^& 0] # strokeThinGrayLine) 
+            (log [maxYValue, maxYValue - (maxYValue / 5) .. 0])
     in do
-        static $ rect (width + 0.2) (height + 0.2) # lw 0 # bgFrame 0.1 white # translateX 1 # translateY (height / 2)
+        static $ rect (w + 0.2) (h + 0.2) # lw 0 # bgFrame 0.1 white # translateX 1 # translateY (h / 2)
         static bg
-        static $ fromVertices [0 ^& 0, width ^& 0] # strokeThinGrayLine
-        static $ fromVertices [0 ^& 0, 0 ^& height] # strokeThinGrayLine
+        static $ vsep (log ((h - 0.135) / 5)) yLabels # translateX (-0.075) # translateY h
+        static $ fromVertices [0 ^& 0, w ^& 0] # strokeThinGrayLine
+        static $ fromVertices [0 ^& 0, 0 ^& h] # strokeThinGrayLine
         static $ atPoints (map (^& 0) xValues) (map (\ a ->
             fromOffsets [0 ^& -0.03] # strokeThinGrayLine
             ===
@@ -228,9 +250,12 @@ lineGraph settings lines =
                 # fc black
                 # scale 0.06
                 # lw 0) $ settings ^. xAxis) # fc white
-        forkAll $ zipWith drawLine lines colors
+        forkAll' (zipWith drawLine lines colors) (withOptions & signal .~ cubicBezierS (1 ^& 0, 0 ^& 1)
+                                                              & duration . _Duration .~ 3)
+        forkAll' (zipWith drawLineBackground lines colors) (withOptions & signal .~ cubicBezierS (1 ^& 0, 0 ^& 1)
+                                                                        & duration . _Duration .~ 3)
 
-strokeThinGrayLine = lc lightgray . lwN 0.005 . strokeLine
+strokeThinGrayLine = lc lightgray . lwN 0.0035 . strokeLine
 
 getHighestYValue :: [Double] -> Double
 getHighestYValue xs = head $ dropWhile (highest >) (values 1.0)

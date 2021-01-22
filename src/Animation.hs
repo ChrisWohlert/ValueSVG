@@ -18,6 +18,7 @@ import           Data.List
 import qualified Data.Map                       as M
 import qualified Debug.Trace                    as D
 import           Util
+import Signal
 
 
 
@@ -31,6 +32,7 @@ data Duration = Duration Double | Static deriving (Show)
 
 data AnimationOptions = AnimationOptions { _delay    :: StartTime
                                          , _duration :: Duration
+                                         , _signal   :: Signal
                                          } deriving (Show)
 
 data Animation a = Animation { _animation        :: Time -> a
@@ -46,6 +48,7 @@ data AnimationState a = AnimationState { _scenes :: [Scene a]
                                        } deriving (Show)
 
 type Animator a = State (AnimationState a) ()
+
 
 
 data SceneState a = SceneState { _currentFrame :: a, _frames :: M.Map Int a, _currentFrameIndex :: Int } deriving (Show)
@@ -73,7 +76,7 @@ fork' x o = scenes . element 0 . animations %= (Animation x o :)
 static x = static' x withOptions
 static' x o = play' (const x) $ o & duration .~ Static
 
-withOptions = AnimationOptions Normal (Duration 1)
+withOptions = AnimationOptions Normal (Duration 1) linearSignal
 
 getFinalFrame :: Monoid a => Animator a -> a
 getFinalFrame x = last $ playAnimation 1 x
@@ -128,7 +131,7 @@ animateScenes fps scenes = do
         getAnimationFrames options = do
             i <- use currentFrameIndex
             let frames = case options ^. duration of
-                            Duration d -> zip [0.0001, (1 / (d * fromIntegral fps)) .. 1] [i ..]
+                            Duration d -> zip (options ^. signal <$> [0.0001, (1 / (d * fromIntegral fps)) .. 1]) [i ..]
                             Static -> [(1, i)]
             return $ case options ^. delay of
                         Normal  -> frames

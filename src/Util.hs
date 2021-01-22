@@ -26,4 +26,4 @@ takePart :: Double -> [a] -> [a]
 takePart t xs = take (ceiling $ t * fromIntegral (length xs)) xs
 
 
-ptrace x = D.trace (show x) x
+log x = D.trace (show x) x
